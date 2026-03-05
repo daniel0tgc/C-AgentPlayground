@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "../api";
 import type { Insight } from "../api";
 import InsightCard from "../components/InsightCard";
+import { getAgents, getStoredApiKey, setStoredApiKey } from "../storage";
 
 const PHASES = ["All", "Setup", "Implementation", "Optimization", "Debug", "Other"];
 
 export default function Dashboard() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("ap_apikey") ?? "");
+  const [apiKey, setApiKey] = useState(() => getStoredApiKey());
   const [inputKey, setInputKey] = useState(apiKey);
+  const [agents, setAgents] = useState(() => getAgents());
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -15,6 +17,10 @@ export default function Dashboard() {
   const [topicFilter, setTopicFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState(false);
+
+  useEffect(() => {
+    setAgents(getAgents());
+  }, []);
 
   const fetchInsights = useCallback(async (key: string) => {
     if (!key) return;
@@ -62,25 +68,44 @@ export default function Dashboard() {
   function saveKey() {
     const k = inputKey.trim();
     setApiKey(k);
-    localStorage.setItem("ap_apikey", k);
+    setStoredApiKey(k);
   }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <span className="text-sm text-gray-500">{insights.length} insights</span>
+        <span className="text-sm text-slate-500">{insights.length} insights</span>
+      </div>
+
+      {/* Your agents */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6">
+        <h2 className="text-lg font-semibold text-white mb-3">Your agents</h2>
+        {agents.length === 0 ? (
+          <p className="text-slate-400 text-sm">No agents yet. Create one from the Agent Directory.</p>
+        ) : (
+          <ul className="space-y-2">
+            {agents.map((a) => (
+              <li key={a.id} className="text-sm text-slate-300 flex items-center gap-2">
+                <span className="text-slate-500">🤖</span>
+                <span className="font-medium">{a.name}</span>
+                <span className="text-slate-500">—</span>
+                <span className="text-slate-400 truncate">{a.description}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* API Key */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6 flex gap-3 items-center">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6 flex gap-3 items-center">
         <input
           type="password"
           placeholder="Paste your API key (ap_...)"
           value={inputKey}
           onChange={(e) => setInputKey(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && saveKey()}
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand-500"
+          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
         />
         <button
           onClick={saveKey}
@@ -101,7 +126,7 @@ export default function Dashboard() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          className="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand-500"
+          className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
         />
         <button
           onClick={handleSearch}
@@ -113,7 +138,7 @@ export default function Dashboard() {
         {searchMode && (
           <button
             onClick={clearSearch}
-            className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-xl font-medium transition-colors"
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-xl font-medium transition-colors"
           >
             Clear
           </button>
@@ -131,7 +156,7 @@ export default function Dashboard() {
                 className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
                   phase === p
                     ? "bg-brand-600 text-white"
-                    : "bg-gray-800 text-gray-400 hover:text-white"
+                    : "bg-slate-800 text-slate-400 hover:text-white"
                 }`}
               >
                 {p}
@@ -143,14 +168,13 @@ export default function Dashboard() {
             placeholder="Filter by topic…"
             value={topicFilter}
             onChange={(e) => setTopicFilter(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-full px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-500"
+            className="bg-slate-800 border border-slate-700 rounded-full px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
           />
         </div>
       )}
 
-      {/* Status */}
       {!apiKey && (
-        <div className="text-center py-20 text-gray-500">
+        <div className="text-center py-20 text-slate-500">
           Enter your API key above to view insights.
         </div>
       )}
@@ -160,10 +184,9 @@ export default function Dashboard() {
         </div>
       )}
       {loading && (
-        <div className="text-center py-20 text-gray-500 text-sm">Loading…</div>
+        <div className="text-center py-20 text-slate-500 text-sm">Loading…</div>
       )}
 
-      {/* Insights grid */}
       {!loading && insights.length > 0 && (
         <div className="flex flex-col gap-4">
           {insights.map((ins) => (
@@ -186,9 +209,8 @@ export default function Dashboard() {
       )}
 
       {!loading && apiKey && insights.length === 0 && (
-        <div className="text-center py-20 text-gray-500">
-          No insights found. Agents can post insights via{" "}
-          <code className="text-brand-400">POST /api/insights</code>.
+        <div className="text-center py-20 text-slate-500">
+          No insights found. Insights appear when a backend is connected.
         </div>
       )}
     </div>

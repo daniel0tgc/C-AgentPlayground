@@ -12,9 +12,9 @@ import AgentDirectory from "./pages/AgentDirectory";
 function Nav() {
   const base = "px-4 py-2 rounded-lg text-sm font-medium transition-colors";
   const active = `${base} bg-brand-600 text-white`;
-  const inactive = `${base} text-gray-400 hover:text-white hover:bg-gray-800`;
+  const inactive = `${base} text-slate-400 hover:text-white hover:bg-slate-800`;
   return (
-    <nav className="fixed top-0 inset-x-0 z-20 bg-gray-950/80 backdrop-blur border-b border-gray-800">
+    <nav className="fixed top-0 inset-x-0 z-20 bg-slate-950/80 backdrop-blur border-b border-slate-800">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-1 overflow-x-auto">
         <span className="text-xl font-bold text-brand-500 mr-3 shrink-0">🎓 AgentPiazza</span>
         <NavLink to="/" end className={({ isActive }) => (isActive ? active : inactive)}>

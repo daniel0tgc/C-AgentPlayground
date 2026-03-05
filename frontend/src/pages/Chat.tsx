@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../api";
 import type { ChatMessageOut, AgentDirectoryItem, AgentStep, PendingPost } from "../api";
+import { getAgents } from "../storage";
 
 const SESSION_KEY = (agentId: string) => `ap_session_${agentId}`;
 
@@ -35,7 +36,7 @@ function AgentSteps({ steps }: { steps: AgentStep[] }) {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="text-xs text-gray-600 hover:text-gray-400 transition-colors mb-1"
+        className="text-xs text-slate-600 hover:text-slate-400 transition-colors mb-1"
       >
         Show agent steps ▾
       </button>
@@ -43,13 +44,13 @@ function AgentSteps({ steps }: { steps: AgentStep[] }) {
   }
 
   return (
-    <div className="mb-1 border border-gray-800 rounded-xl bg-gray-950 px-3 py-2 text-xs space-y-1.5">
+    <div className="mb-1 border border-slate-800 rounded-xl bg-slate-950 px-3 py-2 text-xs space-y-1.5">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-gray-500 font-medium uppercase tracking-wide text-[10px]">Agent steps</span>
+        <span className="text-slate-500 font-medium uppercase tracking-wide text-[10px]">Agent steps</span>
         {allDone && (
           <button
             onClick={() => setCollapsed(true)}
-            className="text-gray-600 hover:text-gray-400 text-[10px] transition-colors"
+            className="text-slate-600 hover:text-slate-400 text-[10px] transition-colors"
           >
             Collapse ▴
           </button>
@@ -61,7 +62,7 @@ function AgentSteps({ steps }: { steps: AgentStep[] }) {
           <span
             className={
               step.status === "done"
-                ? "text-gray-400"
+                ? "text-slate-400"
                 : step.status === "active"
                 ? "text-brand-300"
                 : "text-red-400"
@@ -102,7 +103,7 @@ function PostPreviewCard({ agentId, sessionId, pending, onConfirmed, onCancelled
   const [confirmError, setConfirmError] = useState("");
 
   const labels = LABEL_MAP[pending.content_type] ?? { problem: "Content", solution: "Details" };
-  const badgeClass = TYPE_COLORS[pending.content_type] ?? "bg-gray-800 text-gray-300";
+  const badgeClass = TYPE_COLORS[pending.content_type] ?? "bg-slate-800 text-slate-300";
 
   async function handleConfirm() {
     setConfirming(true);
@@ -118,34 +119,34 @@ function PostPreviewCard({ agentId, sessionId, pending, onConfirmed, onCancelled
   }
 
   return (
-    <div className="border border-gray-700 rounded-xl bg-gray-900 p-4 mt-2 text-sm space-y-3">
+    <div className="border border-slate-700 rounded-xl bg-slate-900 p-4 mt-2 text-sm space-y-3">
       <div className="flex items-center gap-2">
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeClass}`}>
           {pending.content_type.toUpperCase()}
         </span>
         <span className="text-white font-semibold">{pending.topic}</span>
-        <span className="text-gray-500 text-xs ml-auto">{pending.phase}</span>
+        <span className="text-slate-500 text-xs ml-auto">{pending.phase}</span>
       </div>
 
       <div className="space-y-2">
         <div>
-          <p className="text-xs text-gray-500 mb-0.5">{labels.problem}</p>
-          <p className="text-gray-200">{pending.problem}</p>
+          <p className="text-xs text-slate-500 mb-0.5">{labels.problem}</p>
+          <p className="text-slate-200">{pending.problem}</p>
         </div>
         <div>
-          <p className="text-xs text-gray-500 mb-0.5">{labels.solution}</p>
-          <p className="text-gray-200">{pending.solution}</p>
+          <p className="text-xs text-slate-500 mb-0.5">{labels.solution}</p>
+          <p className="text-slate-200">{pending.solution}</p>
         </div>
         {pending.source_ref && (
           <div>
-            <p className="text-xs text-gray-500 mb-0.5">Source</p>
-            <p className="text-gray-400 text-xs">{pending.source_ref}</p>
+            <p className="text-xs text-slate-500 mb-0.5">Source</p>
+            <p className="text-slate-400 text-xs">{pending.source_ref}</p>
           </div>
         )}
         {pending.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {pending.tags.map((t) => (
-              <span key={t} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
+              <span key={t} className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">
                 {t}
               </span>
             ))}
@@ -168,7 +169,7 @@ function PostPreviewCard({ agentId, sessionId, pending, onConfirmed, onCancelled
         <button
           onClick={onCancelled}
           disabled={confirming}
-          className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
+          className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
         >
           Cancel
         </button>
@@ -193,10 +194,36 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load agent info
+  const [isLocalAgent, setIsLocalAgent] = useState(false);
+
+  // Load agent info: check localStorage first for local agents
   useEffect(() => {
     if (!agentId) return;
     setAgentLoading(true);
+    setError("");
+
+    const localAgents = getAgents();
+    const local = localAgents.find((a) => a.id === agentId);
+    if (local) {
+      setAgent({
+        id: local.id,
+        name: local.name,
+        description: local.description,
+        claim_status: "claimed",
+        insight_count: 0,
+        top_topics: [],
+        skill_md_url: "#",
+        heartbeat_md_url: "#",
+        skill_json_url: "#",
+        chat_url: `${typeof window !== "undefined" ? window.location.origin : ""}/chat/${local.id}`,
+        created_at: local.created_at,
+      });
+      setIsLocalAgent(true);
+      setAgentLoading(false);
+      return;
+    }
+
+    setIsLocalAgent(false);
     api
       .listAgents()
       .then((res) => {
@@ -307,8 +334,38 @@ export default function Chat() {
 
   if (agentLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] text-gray-500">
+      <div className="flex items-center justify-center min-h-[60vh] text-slate-500">
         Loading agent…
+      </div>
+    );
+  }
+
+  if (isLocalAgent && agent) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-2xl">🤖</span>
+            <h1 className="text-xl font-bold text-white">{agent.name}</h1>
+          </div>
+          <p className="text-sm text-slate-400 mb-4">{agent.description}</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center">
+          <p className="text-slate-300 mb-4">
+            This agent is stored locally. Paste its API key on the Dashboard to use it with a backend when available.
+          </p>
+          <Link
+            to="/dashboard"
+            className="inline-block px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm rounded-lg font-medium transition-colors"
+          >
+            Go to Dashboard
+          </Link>
+        </div>
+        <div className="flex justify-center mt-6">
+          <Link to="/agents" className="text-sm text-slate-500 hover:text-slate-400 transition-colors">
+            ← Agent Directory
+          </Link>
+        </div>
       </div>
     );
   }
@@ -318,7 +375,7 @@ export default function Chat() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col h-[calc(100vh-3.5rem)]">
       {/* Agent header */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4 flex items-start justify-between gap-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-2xl">🤖</span>
@@ -332,12 +389,12 @@ export default function Chat() {
             )}
           </div>
           {agent && (
-            <p className="text-sm text-gray-400 line-clamp-2">{agent.description}</p>
+            <p className="text-sm text-slate-400 line-clamp-2">{agent.description}</p>
           )}
           {agent && agent.top_topics.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {agent.top_topics.map((t) => (
-                <span key={t} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
+                <span key={t} className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">
                   {t}
                 </span>
               ))}
@@ -357,7 +414,7 @@ export default function Chat() {
           )}
           <button
             onClick={newConversation}
-            className="text-xs text-gray-500 hover:text-white transition-colors whitespace-nowrap"
+            className="text-xs text-slate-500 hover:text-white transition-colors whitespace-nowrap"
           >
             New chat
           </button>
@@ -367,11 +424,11 @@ export default function Chat() {
       {/* Message thread */}
       <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
         {messages.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-600 text-sm gap-2">
+          <div className="flex flex-col items-center justify-center h-full text-slate-600 text-sm gap-2">
             <span className="text-4xl">💬</span>
             <p>
               Start a conversation with{" "}
-              <span className="text-gray-400">{agent?.name ?? "this agent"}</span>.
+              <span className="text-slate-400">{agent?.name ?? "this agent"}</span>.
             </p>
             {agent && agent.insight_count > 0 && (
               <p className="text-xs">
@@ -379,7 +436,7 @@ export default function Chat() {
                 {agent.insight_count !== 1 ? "s" : ""} to draw from.
               </p>
             )}
-            <p className="text-xs text-gray-700 max-w-xs text-center">
+            <p className="text-xs text-slate-700 max-w-xs text-center">
               Tip: ask the agent to post a summary, idea, or insight and it will
               prepare a preview for you to confirm before publishing.
             </p>
@@ -399,7 +456,7 @@ export default function Chat() {
                   className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
                     msg.role === "user"
                       ? "bg-brand-600 text-white rounded-br-sm"
-                      : "bg-gray-800 text-gray-100 rounded-bl-sm"
+                      : "bg-slate-800 text-slate-100 rounded-bl-sm"
                   }`}
                 >
                   {msg.content}
@@ -423,7 +480,7 @@ export default function Chat() {
           <div>
             {lastSteps.length > 0 && <AgentSteps steps={lastSteps} />}
             <div className="flex justify-start">
-              <div className="bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-gray-400 flex gap-1 items-center">
+              <div className="bg-slate-800 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-slate-400 flex gap-1 items-center">
                 <span className="animate-bounce delay-0">●</span>
                 <span className="animate-bounce delay-75">●</span>
                 <span className="animate-bounce delay-150">●</span>
@@ -443,7 +500,7 @@ export default function Chat() {
       )}
 
       {/* Input bar */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex gap-3 items-end">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex gap-3 items-end">
         <textarea
           ref={textareaRef}
           value={input}
@@ -451,7 +508,7 @@ export default function Chat() {
           onKeyDown={handleKeyDown}
           placeholder="Ask a question or ask the agent to post a summary, idea, or insight…"
           rows={2}
-          className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 resize-none focus:outline-none"
+          className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 resize-none focus:outline-none"
         />
         <button
           onClick={send}
@@ -463,8 +520,8 @@ export default function Chat() {
       </div>
 
       {/* Footer links */}
-      <div className="flex justify-center gap-6 mt-3 text-xs text-gray-600">
-        <Link to="/agents" className="hover:text-gray-400 transition-colors">
+      <div className="flex justify-center gap-6 mt-3 text-xs text-slate-600">
+        <Link to="/agents" className="hover:text-slate-400 transition-colors">
           ← Agent Directory
         </Link>
         {agent && (
@@ -472,7 +529,7 @@ export default function Chat() {
             href={agent.skill_md_url}
             target="_blank"
             rel="noreferrer"
-            className="hover:text-gray-400 transition-colors"
+            className="hover:text-slate-400 transition-colors"
           >
             skill.md
           </a>

@@ -1,67 +1,66 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
 import type { AgentDirectoryItem } from "../api";
+import { getAgents, addAgent, generateLocalApiKey } from "../storage";
+
+function recordToItem(r: { id: string; name: string; description: string; created_at: string }): AgentDirectoryItem {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    claim_status: "claimed",
+    insight_count: 0,
+    top_topics: [],
+    skill_md_url: "#",
+    heartbeat_md_url: "#",
+    skill_json_url: "#",
+    chat_url: `${origin}/chat/${r.id}`,
+    created_at: r.created_at,
+  };
+}
 
 function AgentCard({ agent }: { agent: AgentDirectoryItem }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col gap-3 hover:border-gray-700 transition-colors">
-      {/* Header */}
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-3 hover:border-slate-700 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-lg">🤖</span>
             <h3 className="font-bold text-white truncate">{agent.name}</h3>
-            {agent.claim_status === "pending_claim" && (
-              <span className="text-xs bg-yellow-900 text-yellow-300 px-2 py-0.5 rounded-full shrink-0">
-                Needs claiming
-              </span>
-            )}
           </div>
-          <p className="text-sm text-gray-400 line-clamp-2">{agent.description}</p>
+          <p className="text-sm text-slate-400 line-clamp-2">{agent.description}</p>
         </div>
         <div className="text-right shrink-0">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-slate-500">
             {agent.insight_count} insight{agent.insight_count !== 1 ? "s" : ""}
           </span>
         </div>
       </div>
 
-      {/* Topics */}
       {agent.top_topics.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {agent.top_topics.map((t) => (
-            <span key={t} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
+            <span key={t} className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">
               {t}
             </span>
           ))}
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-3 pt-1 border-t border-gray-800 mt-auto">
+      <div className="flex items-center gap-3 pt-1 border-t border-slate-800 mt-auto">
         <Link
           to={`/chat/${agent.id}`}
           className="flex-1 text-center py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm rounded-lg font-medium transition-colors"
         >
           Chat
         </Link>
-        <a
-          href={agent.skill_md_url}
-          target="_blank"
-          rel="noreferrer"
-          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg transition-colors"
+        <Link
+          to="/dashboard"
+          className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg transition-colors"
         >
-          skill.md ↗
-        </a>
-        <a
-          href={`/api/agents/${agent.id}/insights`}
-          target="_blank"
-          rel="noreferrer"
-          className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg transition-colors"
-        >
-          Insights ↗
-        </a>
+          Dashboard
+        </Link>
       </div>
     </div>
   );
@@ -70,28 +69,25 @@ function AgentCard({ agent }: { agent: AgentDirectoryItem }) {
 function RegisterModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (key: string, url: string) => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function submit() {
-    if (!name.trim() || !description.trim()) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.registerAgent(name.trim(), description.trim());
-      const claimUrl = res.claim_url ?? `${window.location.origin}/claim/${res.claim_token}`;
-      onSuccess(res.api_key, claimUrl);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Registration failed. Is the backend running?";
-      setError(msg);
-    } finally {
-      setLoading(false);
+  function submit() {
+    if (!name.trim() || !description.trim()) {
+      setError("Name and description are required.");
+      return;
     }
+    setError("");
+    const id = crypto.randomUUID();
+    const api_key = generateLocalApiKey();
+    const created_at = new Date().toISOString();
+    addAgent({ id, name: name.trim(), description: description.trim(), api_key, created_at });
+    const dashboardUrl = `${window.location.origin}/dashboard`;
+    onSuccess(api_key, dashboardUrl);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">Register Your Agent</h2>
 
         {error && (
@@ -100,34 +96,34 @@ function RegisterModal({ onClose, onSuccess }: { onClose: () => void; onSuccess:
           </div>
         )}
 
-        <label className="block text-sm font-medium text-gray-400 mb-1">Agent Name</label>
+        <label className="block text-sm font-medium text-slate-400 mb-1">Agent Name</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. ResearchBot-42"
-          className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 mb-4 focus:outline-none focus:border-brand-500"
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 mb-4 focus:outline-none focus:border-brand-500"
         />
 
-        <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+        <label className="block text-sm font-medium text-slate-400 mb-1">Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What does this agent research or help with?"
           rows={3}
-          className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 mb-4 resize-none focus:outline-none focus:border-brand-500"
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 mb-4 resize-none focus:outline-none focus:border-brand-500"
         />
 
         <div className="flex gap-3">
           <button
             onClick={submit}
-            disabled={loading || !name.trim() || !description.trim()}
+            disabled={!name.trim() || !description.trim()}
             className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-40"
           >
-            {loading ? "Registering…" : "Register"}
+            Register
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition-colors"
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors"
           >
             Cancel
           </button>
@@ -148,40 +144,40 @@ function SuccessModal({ apiKey, claimUrl, onClose }: { apiKey: string; claimUrl:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md">
         <div className="text-3xl mb-3 text-center">🎉</div>
         <h2 className="text-xl font-bold mb-1 text-center">Agent Registered!</h2>
-        <p className="text-gray-400 text-sm text-center mb-5">
-          Save your API key — it will not be shown again.
+        <p className="text-slate-400 text-sm text-center mb-5">
+          Save your API key — you can paste it on the Dashboard.
         </p>
 
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
           API Key
         </label>
         <div className="flex gap-2 mb-4">
-          <code className="flex-1 bg-gray-800 text-green-400 text-xs px-3 py-2 rounded-xl truncate">
+          <code className="flex-1 bg-slate-800 text-green-400 text-xs px-3 py-2 rounded-xl truncate">
             {apiKey}
           </code>
           <button
             onClick={copy}
-            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-xs text-white rounded-xl transition-colors"
+            className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-xs text-white rounded-xl transition-colors"
           >
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
 
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-          Claim URL (share this with your human)
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+          Paste this key on the Dashboard
         </label>
         <a
           href={claimUrl}
-          className="block bg-gray-800 text-brand-400 text-xs px-3 py-2 rounded-xl truncate hover:underline mb-5"
+          className="block bg-slate-800 text-brand-400 text-xs px-3 py-2 rounded-xl truncate hover:underline mb-5"
         >
           {claimUrl}
         </a>
 
-        <p className="text-xs text-gray-500 mb-4">
-          Store the API key in the Dashboard. Paste the claim URL in your browser or share it with the account owner.
+        <p className="text-xs text-slate-500 mb-4">
+          Go to the Dashboard and paste your API key to use it.
         </p>
 
         <button
@@ -197,38 +193,26 @@ function SuccessModal({ apiKey, claimUrl, onClose }: { apiKey: string; claimUrl:
 
 export default function AgentDirectory() {
   const [agents, setAgents] = useState<AgentDirectoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [successData, setSuccessData] = useState<{ apiKey: string; claimUrl: string } | null>(null);
   const [search, setSearch] = useState("");
 
-  function fetchAgents() {
-    setLoading(true);
-    setError("");
-    api.listAgents()
-      .then((res) => {
-        setAgents(res.agents);
-      })
-      .catch((e: unknown) => {
-        setAgents([]);
-        setError(e instanceof Error ? e.message : "Could not load agents. Is the backend available?");
-      })
-      .finally(() => setLoading(false));
+  function refreshAgents() {
+    setAgents(getAgents().map(recordToItem));
   }
 
-  useEffect(() => { fetchAgents(); }, []);
+  useEffect(() => {
+    refreshAgents();
+  }, []);
 
   const filtered = agents.filter(
     (a) =>
       a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.description.toLowerCase().includes(search.toLowerCase()) ||
-      a.top_topics.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+      a.description.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
-      {/* Modals */}
       {showRegister && (
         <RegisterModal
           onClose={() => setShowRegister(false)}
@@ -242,16 +226,18 @@ export default function AgentDirectory() {
         <SuccessModal
           apiKey={successData.apiKey}
           claimUrl={successData.claimUrl}
-          onClose={() => { setSuccessData(null); fetchAgents(); }}
+          onClose={() => {
+            setSuccessData(null);
+            refreshAgents();
+          }}
         />
       )}
 
-      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div>
           <h1 className="text-3xl font-bold">Agent Directory</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Discover and chat with AI agents. Each agent is backed by real research insights.
+          <p className="text-slate-400 text-sm mt-1">
+            Create and manage agents. Stored locally in this browser.
           </p>
         </div>
         <button
@@ -262,46 +248,21 @@ export default function AgentDirectory() {
         </button>
       </div>
 
-      {/* Protocol hint */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 mb-6 text-sm text-gray-400 flex items-center gap-3">
-        <span className="text-gray-600">OpenClaw agents:</span>
-        <code className="text-green-400 text-xs">
-          GET {window.location.origin}/api/agents
-        </code>
-        <span className="text-gray-600 ml-auto">→ discover all agents + per-agent skill.md</span>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 mb-6 text-sm text-slate-400">
+        Agents are stored locally in this browser. Paste your API key on the Dashboard to use it.
       </div>
 
-      {/* Search */}
       <input
         type="text"
-        placeholder="Search agents by name, description, or topic…"
+        placeholder="Search agents by name or description…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 mb-6 focus:outline-none focus:border-brand-500"
+        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 mb-6 focus:outline-none focus:border-brand-500"
       />
 
-      {/* States */}
-      {error && (
-        <div className="bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-red-300 text-sm mb-6 flex flex-wrap items-center justify-between gap-2">
-          <span>{error}</span>
-          {!loading && (
-            <button
-              onClick={() => fetchAgents()}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors shrink-0"
-            >
-              Try again
-            </button>
-          )}
-        </div>
-      )}
-      {loading && (
-        <div className="text-center py-20 text-gray-500 text-sm">Loading agents…</div>
-      )}
-
-      {/* Grid */}
-      {!loading && filtered.length > 0 && (
+      {filtered.length > 0 && (
         <>
-          <p className="text-sm text-gray-600 mb-4">{filtered.length} agent{filtered.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-slate-600 mb-4">{filtered.length} agent{filtered.length !== 1 ? "s" : ""}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filtered.map((agent) => (
               <AgentCard key={agent.id} agent={agent} />
@@ -310,8 +271,8 @@ export default function AgentDirectory() {
         </>
       )}
 
-      {!loading && filtered.length === 0 && !error && (
-        <div className="text-center py-20 text-gray-500">
+      {filtered.length === 0 && (
+        <div className="text-center py-20 text-slate-500">
           {search ? "No agents match your search." : (
             <div>
               <p className="mb-4">No agents yet. Be the first to register one!</p>

@@ -7,7 +7,7 @@ const PHASE_COLORS: Record<string, string> = {
   Implementation: "bg-purple-900 text-purple-300",
   Optimization: "bg-green-900 text-green-300",
   Debug: "bg-orange-900 text-orange-300",
-  Other: "bg-gray-800 text-gray-300",
+  Other: "bg-slate-800 text-slate-300",
 };
 
 interface Props {
@@ -41,7 +41,7 @@ export default function InsightCard({ insight, apiKey, onVerified }: Props) {
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col gap-3 hover:border-gray-700 transition-colors">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-3 hover:border-slate-700 transition-colors">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -59,14 +59,14 @@ export default function InsightCard({ insight, apiKey, onVerified }: Props) {
 
       {/* Problem */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Problem</p>
-        <p className="text-gray-300 text-sm leading-relaxed">{insight.content.problem}</p>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Problem</p>
+        <p className="text-slate-300 text-sm leading-relaxed">{insight.content.problem}</p>
       </div>
 
       {/* Solution */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Solution</p>
-        <p className="text-gray-200 text-sm leading-relaxed">{insight.content.solution}</p>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Solution</p>
+        <p className="text-slate-200 text-sm leading-relaxed">{insight.content.solution}</p>
       </div>
 
       {/* Source */}
@@ -87,7 +87,7 @@ export default function InsightCard({ insight, apiKey, onVerified }: Props) {
           {insight.metadata.tags.map((tag) => (
             <span
               key={tag}
-              className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full"
+              className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full"
             >
               {tag}
             </span>
@@ -96,8 +96,8 @@ export default function InsightCard({ insight, apiKey, onVerified }: Props) {
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-1 border-t border-gray-800 mt-1">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+      <div className="flex items-center justify-between pt-1 border-t border-slate-800 mt-1">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
           <span>✅ {verCount} verified</span>
           <span>·</span>
           <span>{new Date(insight.created_at).toLocaleDateString()}</span>
@@ -108,7 +108,7 @@ export default function InsightCard({ insight, apiKey, onVerified }: Props) {
             <button
               onClick={handleVerify}
               disabled={verifying}
-              className="text-xs px-3 py-1 rounded-lg bg-gray-800 hover:bg-green-900 hover:text-green-300 text-gray-400 transition-colors disabled:opacity-50"
+              className="text-xs px-3 py-1 rounded-lg bg-slate-800 hover:bg-green-900 hover:text-green-300 text-slate-400 transition-colors disabled:opacity-50"
             >
               {verifying ? "…" : "Verify"}
             </button>

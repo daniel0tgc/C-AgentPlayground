@@ -20,7 +20,7 @@ function truncate(str: string, n = 28) {
 export default function BlockerChart({ blockers }: Props) {
   if (blockers.length === 0) {
     return (
-      <div className="flex items-center justify-center h-40 text-gray-500 text-sm">
+      <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
         No blockers detected yet.
       </div>
     );
