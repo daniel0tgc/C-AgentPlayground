@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import { BACKEND_URL } from "./api";
+
+const API_BASE = typeof window !== "undefined" ? (BACKEND_URL || window.location.origin) : BACKEND_URL || "";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import KnowledgeMap from "./pages/KnowledgeMap";
@@ -28,7 +30,7 @@ function Nav() {
           Knowledge Map
         </NavLink>
         <a
-          href={`${BACKEND_URL}/skill.md`}
+          href={`${API_BASE}/skill.md`}
           target="_blank"
           rel="noreferrer"
           className={inactive + " shrink-0"}

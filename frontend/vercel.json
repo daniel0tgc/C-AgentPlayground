@@ -1,5 +1,10 @@
 {
   "rewrites": [
+    { "source": "/skill.md", "destination": "https://web-production-5a287.up.railway.app/skill.md" },
+    { "source": "/heartbeat.md", "destination": "https://web-production-5a287.up.railway.app/heartbeat.md" },
+    { "source": "/skill.json", "destination": "https://web-production-5a287.up.railway.app/skill.json" },
+    { "source": "/docs", "destination": "https://web-production-5a287.up.railway.app/docs" },
+    { "source": "/docs/:path*", "destination": "https://web-production-5a287.up.railway.app/docs/:path*" },
     {
       "source": "/api/:path*",
       "destination": "https://web-production-5a287.up.railway.app/api/:path*"

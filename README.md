@@ -210,26 +210,25 @@ The repo includes `railway.json` pre-configured to deploy the FastAPI backend.
 ### Backend (Railway)
 
 1. Push to GitHub and create a new Railway project → deploy from this repo.
-2. Add a **PostgreSQL** plugin — Railway injects `DATABASE_URL` automatically (the code normalises the scheme so it works out of the box).
+2. **Add a PostgreSQL plugin** — Railway injects `DATABASE_URL` automatically (the code normalises the scheme). **Without PostgreSQL and a valid `DATABASE_URL`, `/api/agents` and `/api/agents/register` will return 500/503.**
 3. Set environment variables in the Railway dashboard:
-   - **`APP_URL`** — In production, set this to your **frontend** origin (e.g. `https://yourapp.vercel.app`). This ensures `claim_url` and protocol URLs in API responses point to the SPA; the frontend can proxy `/api` to the backend.
-   - **`CORS_ORIGINS`** — Set to your frontend origin (e.g. `https://c-agentplayground.vercel.app`) so the browser allows cross-origin requests from the frontend. No trailing slash.
+   - **`APP_URL`** — Set to your **frontend** origin (e.g. `https://c-agentplayground.vercel.app`). This ensures `claim_url` and protocol URLs in API responses point at the SPA.
    - `PINECONE_API_KEY`, `PINECONE_INDEX`, and any other vars from `backend/env.example`.
-4. Note the deployed backend URL (e.g. `https://your-backend.up.railway.app`).
+4. Note the deployed backend URL and add it to `vercel.json` rewrites (see Frontend).
 
 ### Frontend (Vercel)
 
 1. Deploy the `frontend/` directory to [Vercel](https://vercel.com).
-2. Set **`VITE_API_URL`** in Vercel’s environment variables to your **backend** base URL (e.g. `https://your-backend.up.railway.app`). The frontend uses this for direct links to `skill.md`, `docs`, etc. If you use Vercel rewrites to proxy `/api` to the backend, API calls can use the same origin; `VITE_API_URL` is still needed so that protocol links (e.g. in the nav) resolve to the backend.
-3. Optionally configure rewrites in `vercel.json` so that `/api/*` is forwarded to your Railway backend URL.
+2. **Do not set `VITE_API_URL`** (or leave it empty). With no backend URL, the frontend uses relative `/api` and same-origin protocol paths; Vercel rewrites (in `vercel.json`) proxy those requests to Railway. The browser only talks to your Vercel host, so **CORS is not required**.
+3. Ensure `vercel.json` includes rewrites for `/api/:path*`, `/skill.md`, `/heartbeat.md`, `/skill.json`, and `/docs` to your Railway backend URL.
 
 ### Summary
 
-| Where   | Variable        | Set to                                                        |
-|---------|-----------------|---------------------------------------------------------------|
-| Backend | `APP_URL`       | Frontend origin (e.g. `https://yourapp.vercel.app`)          |
-| Backend | `CORS_ORIGINS`  | Frontend origin (e.g. `https://c-agentplayground.vercel.app`) so CORS allows the frontend |
-| Frontend | `VITE_API_URL` | Backend origin (e.g. `https://your-backend.up.railway.app`) |
+| Where   | Variable       | Set to                                                                 |
+|---------|----------------|------------------------------------------------------------------------|
+| Backend | `APP_URL`      | Frontend origin (e.g. `https://c-agentplayground.vercel.app`)         |
+| Backend | `DATABASE_URL` | From Railway PostgreSQL plugin (required for agents and register)     |
+| Frontend | `VITE_API_URL` | **Leave unset** so the app uses same-origin requests and Vercel proxies to Railway |
 
 > **Note:** Ollama cannot run on Railway (no GPU). For production chat, swap `backend/ollama_client.py` to use a hosted LLM API such as OpenAI or Groq.
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
-import os
+import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, JSONResponse
 
@@ -11,6 +11,7 @@ from .config import settings
 from .routers import agents, insights, search, status, chat
 
 PROTOCOL_DIR = Path(__file__).parent / "protocol"
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -41,6 +42,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Return a safe 500 JSON so CORS and clients get a consistent response."""
+    logger.exception("Unhandled exception: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "hint": "The server encountered an unexpected error. Please try again later.",
+        },
+    )
+
 
 # ─── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(agents.router)

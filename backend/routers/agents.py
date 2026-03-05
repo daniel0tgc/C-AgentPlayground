@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from fastapi.responses import PlainTextResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.exc import OperationalError, InterfaceError
 from ..database import get_db
 from ..models import Agent, Insight
 from ..schemas import (
@@ -53,29 +54,35 @@ async def get_current_agent(
 @router.post("/register", response_model=AgentRegisterResponse, status_code=201)
 async def register_agent(body: AgentRegisterRequest, db: AsyncSession = Depends(get_db)):
     """Register a new agent. Returns api_key and claim_token. No auth required."""
-    existing = await db.execute(select(Agent).where(Agent.name == body.name))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail={"error": "Agent name already taken", "hint": "Choose a different name"})
+    try:
+        existing = await db.execute(select(Agent).where(Agent.name == body.name))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail={"error": "Agent name already taken", "hint": "Choose a different name"})
 
-    agent = Agent(
-        name=body.name,
-        description=body.description,
-        api_key=_generate_api_key(),
-        claim_token=_generate_claim_token(),
-    )
-    db.add(agent)
-    await db.commit()
-    await db.refresh(agent)
+        agent = Agent(
+            name=body.name,
+            description=body.description,
+            api_key=_generate_api_key(),
+            claim_token=_generate_claim_token(),
+        )
+        db.add(agent)
+        await db.commit()
+        await db.refresh(agent)
 
-    return AgentRegisterResponse(
-        id=agent.id,
-        name=agent.name,
-        description=agent.description,
-        api_key=agent.api_key,
-        claim_token=agent.claim_token,
-        claim_status=agent.claim_status,
-        claim_url=f"{settings.APP_URL}/claim/{agent.claim_token}",
-    )
+        return AgentRegisterResponse(
+            id=agent.id,
+            name=agent.name,
+            description=agent.description,
+            api_key=agent.api_key,
+            claim_token=agent.claim_token,
+            claim_status=agent.claim_status,
+            claim_url=f"{settings.APP_URL}/claim/{agent.claim_token}",
+        )
+    except (OperationalError, InterfaceError):
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "Service temporarily unavailable", "hint": "Database may be connecting. Please try again in a moment."},
+        )
 
 
 @router.post("/claim/{token}", response_model=AgentClaimResponse)
@@ -133,46 +140,52 @@ async def list_agents(
     Public directory of all claimed agents — no auth required.
     Enables cross-platform agent discovery.
     """
-    stmt = (
-        select(Agent)
-        .order_by(Agent.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    agents = (await db.execute(stmt)).scalars().all()
-
-    items: list[AgentDirectoryItem] = []
-    for agent in agents:
-        # Count insights and collect top topics for this agent
-        count_result = await db.execute(
-            select(func.count(Insight.id)).where(Insight.agent_id == agent.id)
+    try:
+        stmt = (
+            select(Agent)
+            .order_by(Agent.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
-        insight_count = count_result.scalar() or 0
+        agents = (await db.execute(stmt)).scalars().all()
 
-        topics_result = await db.execute(
-            select(Insight.topic)
-            .where(Insight.agent_id == agent.id)
-            .group_by(Insight.topic)
-            .order_by(func.count(Insight.id).desc())
-            .limit(5)
+        items: list[AgentDirectoryItem] = []
+        for agent in agents:
+            # Count insights and collect top topics for this agent
+            count_result = await db.execute(
+                select(func.count(Insight.id)).where(Insight.agent_id == agent.id)
+            )
+            insight_count = count_result.scalar() or 0
+
+            topics_result = await db.execute(
+                select(Insight.topic)
+                .where(Insight.agent_id == agent.id)
+                .group_by(Insight.topic)
+                .order_by(func.count(Insight.id).desc())
+                .limit(5)
+            )
+            top_topics = [row[0] for row in topics_result.all()]
+
+            items.append(AgentDirectoryItem(
+                id=agent.id,
+                name=agent.name,
+                description=agent.description,
+                claim_status=agent.claim_status,
+                insight_count=insight_count,
+                top_topics=top_topics,
+                skill_md_url=f"{settings.APP_URL}/api/agents/{agent.id}/skill.md",
+                heartbeat_md_url=f"{settings.APP_URL}/api/agents/{agent.id}/heartbeat.md",
+                skill_json_url=f"{settings.APP_URL}/api/agents/{agent.id}/skill.json",
+                chat_url=f"{settings.APP_URL}/api/chat/{agent.id}",
+                created_at=agent.created_at,
+            ))
+
+        return AgentDirectoryResponse(agents=items, total=len(items))
+    except (OperationalError, InterfaceError):
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "Service temporarily unavailable", "hint": "Database may be connecting. Please try again in a moment."},
         )
-        top_topics = [row[0] for row in topics_result.all()]
-
-        items.append(AgentDirectoryItem(
-            id=agent.id,
-            name=agent.name,
-            description=agent.description,
-            claim_status=agent.claim_status,
-            insight_count=insight_count,
-            top_topics=top_topics,
-            skill_md_url=f"{settings.APP_URL}/api/agents/{agent.id}/skill.md",
-            heartbeat_md_url=f"{settings.APP_URL}/api/agents/{agent.id}/heartbeat.md",
-            skill_json_url=f"{settings.APP_URL}/api/agents/{agent.id}/skill.json",
-            chat_url=f"{settings.APP_URL}/api/chat/{agent.id}",
-            created_at=agent.created_at,
-        ))
-
-    return AgentDirectoryResponse(agents=items, total=len(items))
 
 
 # ─── Per-Agent Protocol Files ─────────────────────────────────────────────────
